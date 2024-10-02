@@ -85,7 +85,6 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class FileUtils {
     private static final Logger logger = LoggerFactory.getLogger(FileUtils.class);
-//    private static final FilePrivilegeRepository filePrivilegeRepository = null;
         public static String saveAttachment2(MultipartFile file, String storagePath) {
         String uploadDir = storagePath;
         File directory = new File(uploadDir);
@@ -99,7 +98,7 @@ public class FileUtils {
         try {
             // Generate a unique file name
             String originalFilename = file.getOriginalFilename();
-            String uniqueFileName =  originalFilename  + "_" + UUID.randomUUID();
+            String uniqueFileName =UUID.randomUUID() + "_" + originalFilename;
 
             // Save the file
             File dest = new File(directory, uniqueFileName);

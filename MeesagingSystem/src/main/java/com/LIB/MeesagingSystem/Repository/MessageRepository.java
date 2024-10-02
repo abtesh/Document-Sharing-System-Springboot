@@ -24,6 +24,8 @@ public interface MessageRepository extends MongoRepository<Message, String> {
     Message findByGroupIdAndAttachmentsContaining(String groupId, String fileName);
     @Query("{ 'senderId': ?0, 'receiverId': { $exists: true, $ne: null } }")
     List<Message> findBySenderIdAndReceiverIdIsNotNull(String senderId);
+    long countByReceiverIdAndIsReadFalse(String receiverId);
+    List<Message> findByReceiverIdAndIsReadFalse(String receiverId);
 
 }
 

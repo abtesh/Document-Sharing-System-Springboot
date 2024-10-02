@@ -8,6 +8,7 @@ import com.LIB.MeesagingSystem.Dto.OutboxMessageDto;
 import com.LIB.MeesagingSystem.Model.Message;
 import com.LIB.MeesagingSystem.Model.Users;
 import com.LIB.MeesagingSystem.Repository.UserRepository;
+import com.LIB.MeesagingSystem.Service.Impl.MessageServiceImpl;
 import com.LIB.MeesagingSystem.Service.MessageService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -28,6 +29,7 @@ import java.util.List;
 public class MessageController {
     private final MessageService messageServiceImpl;
     private final UserRepository userRepository;
+    private final MessageServiceImpl messageService;
 
 
     @PostMapping("/createUser")
@@ -67,10 +69,6 @@ public class MessageController {
         Message message = messageServiceImpl.getMessage(id);
         return ResponseEntity.ok(message);
     }
-    //    @GetMapping("/{senderId}/{receiverId}")
-//    public List<Message> getMessageBetweenUsers(@PathVariable("senderId") String senderId, @PathVariable("receiverId") String receiverId) {
-//        return messageServiceImpl.getMessagesBetweenUsers(senderId, receiverId);
-//    }
     @GetMapping("/inbox")
     public ResponseEntity<List<InboxMessageDto>> getMessagesByUserId() {
         List<InboxMessageDto> messages = messageServiceImpl.getMessagesByUserId();
@@ -81,7 +79,6 @@ public class MessageController {
         List<OutboxMessageDto> messages = messageServiceImpl.getMessagesBySenderId();
         return ResponseEntity.ok(messages);
     }
-
     @GetMapping("/search")
     public ResponseEntity<Message> getMessageById(@RequestBody MessageSearchRequestDto searchRequest) {
         Message message = messageServiceImpl.findMessageByIdForUser(
@@ -90,13 +87,6 @@ public class MessageController {
         );
         return ResponseEntity.ok(message);
     }
-    //    @GetMapping("/{messageId}/attachments/{attachmentId}")
-//    public Message getMessageWithAttachmentCheck(@PathVariable String messageId,
-//                                                 @PathVariable String attachmentId,
-//                                                 @RequestParam String userId) {
-//        return messageServiceImpl.getMessageWithAttachmentCheck(messageId, attachmentId, userId);
-//
-//    }
     @DeleteMapping("/delete/{messageId}")
     public ResponseEntity<String> deleteMessage(@PathVariable("messageId") String messageId) {
         messageServiceImpl.deleteMessageById(messageId);
@@ -109,6 +99,18 @@ public class MessageController {
 
         List<Message> messages = messageServiceImpl.searchInboxMessages(senderEmail, attachmentName);
         return ResponseEntity.ok(messages);
+    }
+    // New endpoint to get unread message count (for notification)
+    @GetMapping("/inbox/unread-count")
+    public ResponseEntity<Long> getUnreadMessageCount() {
+        long unreadCount = messageService.countUnreadMessage();
+        return ResponseEntity.ok(unreadCount);
+    }
+    // New endpoint to mark a message as read
+    @GetMapping("/inbox/mark-as-read")
+    public ResponseEntity<Void> markMessagesAsRead() {
+        messageService.markMessageAsRead();
+        return ResponseEntity.ok().build();
     }
 }
 

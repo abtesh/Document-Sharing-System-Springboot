@@ -30,6 +30,6 @@ ldap:
   password: D!g!ld4p
   url: ldap://10.1.10.1:389
   search-base: DC=LIB5,DC=COM  # Updated search base from application.properties
-logging:
-  level:
-    org.springframework.security: DEBUG  # Added from application.properties
+#logging:
+#  level:
+#    org.springframework.security: DEBUG  # Added from application.properties

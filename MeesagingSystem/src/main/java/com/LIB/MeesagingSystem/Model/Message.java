@@ -33,4 +33,5 @@ public class Message {
     private RecipientTypes recipientType;
     private Date date;
     private boolean isDraft;
+    private boolean isRead = false;
 }

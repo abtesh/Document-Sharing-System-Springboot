@@ -70,10 +70,6 @@ public class MessageServiceImpl implements MessageService {
                     attachmentPaths.add(filePath);
                 }
             }
-//            for (MultipartFile attachment : attachments) {
-//                String filePath = FileUtils.saveAttachment(attachment, storagePath);
-//                attachmentPaths.add(filePath);
-//            }
         }
         // Create message
         Message message = new Message();
@@ -149,6 +145,30 @@ public class MessageServiceImpl implements MessageService {
         }).collect(Collectors.toList());
     }
 
+    public long countUnreadMessage(){
+        LdapUserDTO userDTO = (LdapUserDTO) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        String userId = userDTO.getUid();
+        return messageRepository.countByReceiverIdAndIsReadFalse(userId);
+    }
+
+//    public void markMessageAsRead(String messageId) {
+//        Optional<Message> messageOpt = messageRepository.findById(messageId);
+//        if(messageOpt.isPresent()){
+//            Message message = messageOpt.get();
+//            message.setRead(true);
+//            messageRepository.save(message);
+//        }
+  //  }
+    public void markMessageAsRead() {
+        LdapUserDTO dto = (LdapUserDTO) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        String userId = dto.getUid();
+        List<Message> unreadMessages = messageRepository.findByReceiverIdAndIsReadFalse(userId);
+        unreadMessages.forEach(message -> {
+            message.setRead(true); // Mark each message as read
+            messageRepository.save(message); // Save the updated message
+        });
+    }
+
     public List<OutboxMessageDto> getMessagesBySenderId() {
         // Get the authenticated user's ID
         LdapUserDTO user = (LdapUserDTO) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
@@ -202,7 +222,7 @@ public class MessageServiceImpl implements MessageService {
 
     public String compressAttachments(List<MultipartFile> attachments) {
         // Generate a unique name for the zip file
-        String zipFileName = "attachments_" + UUID.randomUUID().toString() + ".zip";
+        String zipFileName = "attachments_" + UUID.randomUUID() + ".zip";
         Path zipFilePath = Paths.get(storagePath, zipFileName);
 
         try (ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(zipFilePath.toFile()))) {
