@@ -16,6 +16,4 @@ public class LdapService {
         return new GenericResponseDto<>(true, 200, "We are processing your request", null);
 
     }
-
-
 }

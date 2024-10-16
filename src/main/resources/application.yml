@@ -3,7 +3,7 @@ spring:
     name: MessagingSystem
   data:
     mongodb:
-      host: 10.1.22.176  # Retained the external MongoDB host
+      host: localhost  # Retained the external MongoDB host
       port: 27017
       database: messagingApp
   servlet:
@@ -14,10 +14,20 @@ spring:
     serialization:
       write-dates-as-timestamps: false  # Added from application.properties
 server:
-  port: 8081  # Retained from application.properties
+  port: 8080  # Retained from application.properties
 
 file:
-  storage-path: C:\Users\abenezert\Desktop\Files for test  # Updated to your preferred file path
+  storage-path: E:\EmailZip  # Updated to your preferred file path
+
+lib-credentials:
+  username: lion
+  password: bank
+
+lib-url:
+  email: http://10.1.7.115:9191/api/v1/lionbank/channel/smtp/send/email2
+  tele-sms: http://10.1.7.115:9191/api/v1/lionbank/channel/sms/1/send
+  safari-sms: http://10.1.7.115:9191/api/v1/lionbank/channel/sms/2/send
+
 
 application:
   security:
@@ -30,6 +40,7 @@ ldap:
   password: D!g!ld4p
   url: ldap://10.1.10.1:389
   search-base: DC=LIB5,DC=COM  # Updated search base from application.properties
-logging:
-  level:
-    org.springframework.security: DEBUG  # Added from application.properties
+#logging:
+#  level:
+#    org.springframework.security: DEBUG  # Added from application.properties
+

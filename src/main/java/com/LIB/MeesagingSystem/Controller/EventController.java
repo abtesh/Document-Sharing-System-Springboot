@@ -2,15 +2,17 @@ package com.LIB.MeesagingSystem.Controller;
 
 import com.LIB.MeesagingSystem.Dto.ApiResponse;
 import com.LIB.MeesagingSystem.Dto.EventDTO;
-import com.LIB.MeesagingSystem.Dto.SecurityDtos.SendEmailToMembersDto;
+import com.LIB.MeesagingSystem.Dto.InvitationEmailRequest;
 import com.LIB.MeesagingSystem.Model.Event;
 import com.LIB.MeesagingSystem.Service.EmailService;
 import com.LIB.MeesagingSystem.Service.EventService;
+import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 @AllArgsConstructor
@@ -29,18 +31,18 @@ public class EventController {
         return ResponseEntity.ok(event);
     }
 
-    @PutMapping("/{id}")
-    public ResponseEntity<Event> updateEvent(@PathVariable String id, @RequestBody EventDTO eventDTO) {
-        Event updatedEvent = eventService.updateEvent(id, eventDTO);
-        if (updatedEvent != null) {
-            return ResponseEntity.ok(updatedEvent);
-        }
-        return ResponseEntity.notFound().build();
-    }
+//    @PutMapping("/{id}")
+//    public ResponseEntity<Event> updateEvent(@PathVariable String id, @RequestBody EventDTO eventDTO) {
+//        Event updatedEvent = eventService.updateEvent(id, eventDTO);
+//        if (updatedEvent != null) {
+//            return ResponseEntity.ok(updatedEvent);
+//        }
+//        return ResponseEntity.notFound().build();
+//    }
 
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteEvent(@PathVariable String id) {
-        boolean isDeleted = eventService.deleteEvent(id);
+    @PatchMapping("/{id}")
+    public ResponseEntity<Void> cancelEvent(@PathVariable String id) {
+        boolean isDeleted = eventService.cancelEvent(id);
         if (isDeleted) {
             return ResponseEntity.noContent().build();
         }
@@ -61,5 +63,7 @@ public class EventController {
         List<Event> events = eventService.getAllEvents();
         return ResponseEntity.ok(events);
     }
+
+
 
 }

@@ -84,5 +84,8 @@ public class EmailController {
 
     }
 
-
 }
+
+//the above code works fine without adding a new controller to accept invitaion request separately
+
+

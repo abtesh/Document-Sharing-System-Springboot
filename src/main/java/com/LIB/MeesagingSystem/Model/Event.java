@@ -19,11 +19,12 @@ public class Event {
     private String description;
     private String location;
     private String meetingLink;
-    private List<String> participants;  // Change to List<String>
+    private List<String> participants;
     private String organizerName;
     private String organizerEmail;
     private Date start;
     private Date end;
     private Date createdDate;
     private Date updatedDate;
+    private Boolean isCanceled = false;
 }

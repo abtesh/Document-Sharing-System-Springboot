@@ -22,4 +22,6 @@ public interface BoardSecretaryRepo extends MongoRepository<BoardSecretary, Stri
     
     Optional<BoardSecretary> findByFirstNameAndMiddleNameAndLastName(String firstName, String middleName, String lastName);
     Optional<BoardSecretary> findIDByEmail(String from);
+
+    Optional<Object> findByIdIn(List<String> memberIDs);
 }
