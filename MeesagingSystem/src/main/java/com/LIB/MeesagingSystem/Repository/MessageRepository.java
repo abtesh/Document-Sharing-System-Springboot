@@ -1,5 +1,6 @@
 package com.LIB.MeesagingSystem.Repository;
 
+import com.LIB.MeesagingSystem.Model.Group;
 import com.LIB.MeesagingSystem.Model.Message;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.data.mongodb.repository.Query;
@@ -26,6 +27,8 @@ public interface MessageRepository extends MongoRepository<Message, String> {
     List<Message> findBySenderIdAndReceiverIdIsNotNull(String senderId);
     long countByReceiverIdAndIsReadFalse(String receiverId);
     List<Message> findByReceiverIdAndIsReadFalse(String receiverId);
+    List<Message> findByGroupIdAndIsReadFalse(String groupId);
+    long countByGroupIdAndIsReadFalse(String groupId);
 
 }
 

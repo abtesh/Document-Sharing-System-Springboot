@@ -212,7 +212,83 @@ public class GroupServiceImpl implements GroupService {
         group.getMembers().remove(memberId);
         return groupRepository.save(group);
     }
-    //    public List<InboxMessageDto> getMessagesByGroupId(String groupId) {
+
+    public long countUnreadMessages(String groupId) {
+        return messageRepository.countByGroupIdAndIsReadFalse(groupId);
+    }
+    public void markMessageAsRead(String groupId) {
+        List<Message> unreadMessages = messageRepository.findByGroupIdAndIsReadFalse(groupId);
+        unreadMessages.forEach(groupMessage -> {
+            groupMessage.setRead(true); // Mark each message as read
+            messageRepository.save(groupMessage); // Save the updated message
+        });
+    }
+    public List<InboxMessageDto> getMessagesByGroupId(String groupId) {
+        LdapUserDTO user = (LdapUserDTO) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        String userId = user.getUid();
+
+        // Verify if the user is a member of the group
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new RuntimeException("Group not found with id: " + groupId));
+        if (!group.getMembers().contains(userId)) {
+            throw new RuntimeException("User is not a member of this group");
+        }
+
+        // Fetch the messages for the group
+        List<Message> messages = messageRepository.findByGroupId(groupId);
+
+        // Map messages to InboxMessageDto, including the sender's email
+        return messages.stream()
+                .map(this::mapToInboxMessageDto)  // Map each message to InboxMessageDto
+                .collect(Collectors.toList());
+    }
+
+
+    private InboxMessageDto mapToInboxMessageDto(Message message) {
+        String senderEmail = userRepository.findById(message.getSenderId())
+                .map(Users::getEmail)
+                .orElse("Unknown Sender");
+
+        if (senderEmail.equals("Unknown Sender")) {
+            System.out.println("Warning: Sender not found for message ID: " + message.getId());
+        }
+
+        return new InboxMessageDto(message.getId(), senderEmail, message.getContent(), message.getDate(), message.getAttachments(), true);
+    }
+
+    public String compressAttachments(List<MultipartFile> attachments) {
+        // Generate a unique name for the zip file
+        String zipFileName = "attachments_" + UUID.randomUUID().toString() + ".zip";
+        Path zipFilePath = Paths.get(storagePath, zipFileName);
+
+        try (ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(zipFilePath.toFile()))) {
+            for (MultipartFile attachment : attachments) {
+                ZipEntry zipEntry = new ZipEntry(attachment.getOriginalFilename());
+                zos.putNextEntry(zipEntry);
+
+                try (InputStream inputStream = attachment.getInputStream()) {
+                    byte[] buffer = new byte[1024];
+                    int length;
+                    while ((length = inputStream.read(buffer)) > 0) {
+                        zos.write(buffer, 0, length);
+                    }
+                }
+                zos.closeEntry();
+            }
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to compress attachments", e);
+        }
+        // Return only the zip file name, not the full path
+        return zipFileName;
+    }
+}
+
+
+
+
+
+
+//    public List<InboxMessageDto> getMessagesByGroupId(String groupId) {
 //        Group group = groupRepository.findById(groupId)
 //                .orElseThrow(() -> new RuntimeException("Group not found"));
 //        // Fetch the currently authenticated user
@@ -246,63 +322,3 @@ public class GroupServiceImpl implements GroupService {
 //
 //        return new InboxMessageDto(senderEmail, message.getContent(), message.getDate(), message.getAttachments());
 //    }
-    public List<InboxMessageDto> getMessagesByGroupId(String groupId) {
-        LdapUserDTO user = (LdapUserDTO) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        String userId = user.getUid();
-
-        // Verify if the user is a member of the group
-        Group group = groupRepository.findById(groupId)
-                .orElseThrow(() -> new RuntimeException("Group not found with id: " + groupId));
-        if (!group.getMembers().contains(userId)) {
-            throw new RuntimeException("User is not a member of this group");
-        }
-
-        // Fetch the messages for the group
-        List<Message> messages = messageRepository.findByGroupId(groupId);
-
-        // Map messages to InboxMessageDto, including the sender's email
-        return messages.stream()
-                .map(this::mapToInboxMessageDto)  // Map each message to InboxMessageDto
-                .collect(Collectors.toList());
-    }
-
-    private InboxMessageDto mapToInboxMessageDto(Message message) {
-        String senderEmail = userRepository.findById(message.getSenderId())
-                .map(Users::getEmail)
-                .orElse("Unknown Sender");
-
-        if (senderEmail.equals("Unknown Sender")) {
-            System.out.println("Warning: Sender not found for message ID: " + message.getId());
-        }
-
-        return new InboxMessageDto(message.getId(), senderEmail, message.getContent(), message.getDate(), message.getAttachments());
-    }
-
-    public String compressAttachments(List<MultipartFile> attachments) {
-        // Generate a unique name for the zip file
-        String zipFileName = "attachments_" + UUID.randomUUID().toString() + ".zip";
-        Path zipFilePath = Paths.get(storagePath, zipFileName);
-
-        try (ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(zipFilePath.toFile()))) {
-            for (MultipartFile attachment : attachments) {
-                ZipEntry zipEntry = new ZipEntry(attachment.getOriginalFilename());
-                zos.putNextEntry(zipEntry);
-
-                try (InputStream inputStream = attachment.getInputStream()) {
-                    byte[] buffer = new byte[1024];
-                    int length;
-                    while ((length = inputStream.read(buffer)) > 0) {
-                        zos.write(buffer, 0, length);
-                    }
-                }
-                zos.closeEntry();
-            }
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to compress attachments", e);
-        }
-        // Return only the zip file name, not the full path
-        return zipFileName;
-    }
-
-
-}

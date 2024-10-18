@@ -16,4 +16,5 @@ public class InboxMessageDto {
     private String content;
     private Date date;
     private List<String> attachments;
+    private boolean isDownloadable;
 }

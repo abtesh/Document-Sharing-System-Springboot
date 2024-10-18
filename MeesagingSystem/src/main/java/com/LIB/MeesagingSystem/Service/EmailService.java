@@ -686,6 +686,7 @@ import com.LIB.MeesagingSystem.Repository.BODGroupRepo;
 import com.LIB.MeesagingSystem.Repository.BODMembersRepo;
 import com.LIB.MeesagingSystem.Repository.EmailHistoryRepo;
 import com.LIB.MeesagingSystem.Utils.FileUtils;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.*;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -709,10 +710,24 @@ import java.util.zip.ZipOutputStream;
 @Service
 public class EmailService {
 
-    private static final String storagePath = "E:/EmailZip";
-    private final String url = "http://10.1.7.115:9191/api/v1/lionbank/channel/smtp/send/email2";
-    private static final String AUTH_USERNAME = "lion";
-    private static final String AUTH_PASSWORD = "bank";
+    @Value("${file.storage-path}")
+    private String storagePath;
+
+    @Value("${lib-credentials.username}")
+    private String LibUsername;
+
+    @Value("${lib-credentials.password}")
+    private String LibPassword;
+
+    @Value("${lib-url.email}")
+    private String emailUrl;
+
+    @Value("${lib-url.tele-sms}")
+    private String teleSmsUrl;
+
+    @Value("${lib-url.safari-sms}")
+    private String safariSmsUrl;
+
     private final RestTemplate restTemplate;
     private final BODMembersRepo bodMembersRepo;
     private final BODGroupRepo bodGroupRepo;
@@ -727,40 +742,36 @@ public class EmailService {
 
     public ApiResponse sendToMember(List<String> memberID, String subject, String message, MultipartFile[] files, String boardSecretaryid) throws IOException {
         LdapUserDTO user = (LdapUserDTO) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        List<String> emails = bodMembersRepo.findByIdIn(memberID).stream()
+        List<BODMembers> members = bodMembersRepo.findByIdIn(memberID);
+        List<String> emails = members.stream()
                 .map(BODMembers::getEmail)
                 .collect(Collectors.toList());
+
         if (emails.isEmpty()) {
             return new ApiResponse("Error", "Member not found");
         }
+
         String from = "Lion International Bank S.C <" + user.getEmail() + ">";
+        boolean isInvitation = false;
 
         if (files != null && files.length > 0) {
-            if (files.length > 1) {
-                // Multiple files: compress and send as ZIP
-                String zipFileName = compressAttachments(Arrays.asList(files));
-                Path zipFilePath = Paths.get(storagePath, zipFileName);
-
-                for (String email : emails) {
-                    sendEmail(from, email, subject, message, zipFilePath);
+            for (MultipartFile file : files) {
+                if (file.getOriginalFilename().endsWith(".ics")) {
+                    isInvitation = true;
+                    break;
                 }
-                saveEmailHistory(emails, null, subject, message, boardSecretaryid, Collections.singletonList(zipFileName));
-            } else {
-                List<String> attachmentNames = new ArrayList<>();
-                for (MultipartFile file : files) {
-                    String originalFileName = file.getOriginalFilename();
-                    String uniqueFileName = FileUtils.generateUniqueFileName(originalFileName);
-                    FileUtils.saveAttachment(file, storagePath, uniqueFileName);
-                    attachmentNames.add(uniqueFileName);
+            }
 
-                    for (String email : emails) {
-                        sendEmail(from, email, subject, message, uniqueFileName);
-                    }
-                }
-                saveEmailHistory(emails, null, subject, message, boardSecretaryid, attachmentNames);
+            handleFiles(from, emails, subject, message, files, null, boardSecretaryid);
+
+            if (isInvitation) {
+                sendInvitationSMS(members);
             }
         } else {
-            return new ApiResponse("Error", "No files provided");
+            for (String email : emails) {
+                sendEmail(from, email, subject, message, null);
+            }
+            saveEmailHistory(emails, null, subject, message, boardSecretaryid, null);
         }
 
         return new ApiResponse("Success", "Email Sent Successfully");
@@ -781,84 +792,98 @@ public class EmailService {
         String from = "Lion International Bank S.C <" + user.getEmail() + ">";
 
         if (files != null && files.length > 0) {
-            if (files.length > 1) {
-                // Multiple files: compress and send as ZIP
-                String zipFileName = compressAttachments(Arrays.asList(files));
-                Path zipFilePath = Paths.get(storagePath, zipFileName);
-
-                for (String email : emails) {
-                    sendEmail(from, email, subject, message, zipFilePath);
-                }
-                saveEmailHistory(null, groupId, subject, message, boardSecretaryid, Collections.singletonList(zipFileName));
-            } else {
-                List<String> attachmentNames = new ArrayList<>();
-                for (MultipartFile file : files) {
-                    String originalFileName = file.getOriginalFilename();
-                    String uniqueFileName = FileUtils.generateUniqueFileName(originalFileName);
-                    FileUtils.saveAttachment(file, storagePath, uniqueFileName);
-                    attachmentNames.add(uniqueFileName);
-
-                    for (String email : emails) {
-                        sendEmail(from, email, subject, message, uniqueFileName);
-                    }
-                }
-                saveEmailHistory(null, groupId, subject, message, boardSecretaryid, attachmentNames);
-            }
+            handleFiles(from, emails, subject, message, files, groupId, boardSecretaryid);
         } else {
-            return new ApiResponse("Error", "No files provided");
+            for (String email : emails) {
+                sendEmail(from, email, subject, message, null);
+            }
+            saveEmailHistory(null, groupId, subject, message, boardSecretaryid, null);
         }
 
         return new ApiResponse("Success", "Email Sent Successfully");
     }
 
-    private void sendEmail(String from, String to, String subject, String message, Path zipFilePath) throws IOException {
-        MultiValueMap<String, Object> bodyMap = new LinkedMultiValueMap<>();
-        bodyMap.add("from", from);
-        bodyMap.add("to", to);
-        bodyMap.add("subject", subject);
-        bodyMap.add("message", message);
+    private void sendInvitationSMS(List<BODMembers> members) {
+        for (BODMembers member : members) {
+            String mobile = member.getMobile();
+            String message = "You have received a new invitation email. Please check your Email for detail information. \n \n LIB - Key to success";
 
-        // Attach ZIP file
-        byte[] zipFileBytes = Files.readAllBytes(zipFilePath);
-        bodyMap.add("files", new ByteArrayResource(zipFileBytes) {
-            @Override
-            public String getFilename() {
-                return zipFilePath.getFileName().toString();
+            if (mobile.startsWith("09")) {
+                sendSMS(mobile, message, teleSmsUrl);
+            } else if (mobile.startsWith("07")) {
+                sendSMS(mobile, message, safariSmsUrl);
             }
-        });
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.MULTIPART_FORM_DATA);
-        headers.setBasicAuth(AUTH_USERNAME, AUTH_PASSWORD);
-        HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(bodyMap, headers);
-        ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, requestEntity, String.class);
-
-        if (response.getStatusCode() != HttpStatus.OK) {
-            throw new RuntimeException("Email not sent, status code: " + response.getStatusCode());
         }
     }
 
-    private void sendEmail(String from, String to, String subject, String message, String fileName) throws IOException {
+    private void sendSMS(String mobile, String message, String emailUrl) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setBasicAuth(LibUsername, LibPassword);
+
+        Map<String, String> body = new HashMap<>();
+        body.put("mobile", mobile);
+        body.put("message", message);
+
+        HttpEntity<Map<String, String>> requestEntity = new HttpEntity<>(body, headers);
+
+        try {
+            ResponseEntity<String> response = restTemplate.postForEntity(emailUrl, requestEntity, String.class);
+            if (response.getStatusCode() != HttpStatus.OK) {
+                throw new RuntimeException("SMS not sent, status code: " + response.getStatusCode());
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to send SMS", e);
+        }
+    }
+
+    private void handleFiles(String from, List<String> emails, String subject, String message, MultipartFile[] files, String groupId, String boardSecretaryid) throws IOException {
+        if (files.length > 1) {
+            String zipFileName = compressAttachments(Arrays.asList(files));
+            Path zipFilePath = Paths.get(storagePath, zipFileName);
+
+            for (String email : emails) {
+                sendEmail(from, email, subject, message, zipFilePath);
+            }
+            saveEmailHistory(emails, groupId, subject, message, boardSecretaryid, Collections.singletonList(zipFileName));
+        } else {
+            List<String> attachmentNames = new ArrayList<>();
+            for (MultipartFile file : files) {
+                String originalFileName = file.getOriginalFilename();
+                String uniqueFileName = FileUtils.generateUniqueFileName(originalFileName);
+                FileUtils.saveAttachment(file, storagePath, uniqueFileName);
+                attachmentNames.add(uniqueFileName);
+
+                for (String email : emails) {
+                    sendEmail(from, email, subject, message, Paths.get(storagePath, uniqueFileName));
+                }
+            }
+            saveEmailHistory(emails, groupId, subject, message, boardSecretaryid, attachmentNames);
+        }
+    }
+
+    private void sendEmail(String from, String to, String subject, String message, Path filePath) throws IOException {
         MultiValueMap<String, Object> bodyMap = new LinkedMultiValueMap<>();
         bodyMap.add("from", from);
         bodyMap.add("to", to);
         bodyMap.add("subject", subject);
         bodyMap.add("message", message);
 
-        // Read file from local storage
-        Path filePath = Paths.get(storagePath, fileName);
-        bodyMap.add("files", new ByteArrayResource(Files.readAllBytes(filePath)) {
-            @Override
-            public String getFilename() {
-                return fileName;
-            }
-        });
+        if (filePath != null) {
+            byte[] fileBytes = Files.readAllBytes(filePath);
+            bodyMap.add("files", new ByteArrayResource(fileBytes) {
+                @Override
+                public String getFilename() {
+                    return filePath.getFileName().toString();
+                }
+            });
+        }
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.MULTIPART_FORM_DATA);
-        headers.setBasicAuth(AUTH_USERNAME, AUTH_PASSWORD);
+        headers.setBasicAuth(LibUsername, LibPassword);
         HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(bodyMap, headers);
-        ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, requestEntity, String.class);
+        ResponseEntity<String> response = restTemplate.exchange(emailUrl, HttpMethod.POST, requestEntity, String.class);
 
         if (response.getStatusCode() != HttpStatus.OK) {
             throw new RuntimeException("Email not sent, status code: " + response.getStatusCode());

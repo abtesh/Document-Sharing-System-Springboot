@@ -27,37 +27,23 @@ public class EventService {
         event.setOrganizerEmail(eventDTO.getOrganizerEmail());
         event.setStart(eventDTO.getStart());
         event.setEnd(eventDTO.getEnd());
-        event.setCreatedDate(new Date()); // Current date
-        event.setUpdatedDate(new Date()); // Current date
+        event.setCreatedDate(new Date());
+        event.setUpdatedDate(new Date());
         return eventRepository.save(event);
     }
 
-    public Event updateEvent(String id, EventDTO eventDTO) {
-        Optional<Event> optionalEvent = eventRepository.findById(id);
-        if (optionalEvent.isPresent()) {
-            Event event = optionalEvent.get();
-            event.setTitle(eventDTO.getTitle());
-            event.setDescription(eventDTO.getDescription());
-            event.setLocation(eventDTO.getLocation());
-            event.setMeetingLink(eventDTO.getMeetingLink());
-            event.setParticipants(eventDTO.getParticipants());
-            event.setOrganizerName(eventDTO.getOrganizerName());
-            event.setOrganizerEmail(eventDTO.getOrganizerEmail());
-            event.setStart(eventDTO.getStart());
-            event.setEnd(eventDTO.getEnd());
-            event.setUpdatedDate(new Date()); // Current date
-            return eventRepository.save(event);
-        }
-        return null;
-    }
-
-    public boolean deleteEvent(String id) {
+    public boolean cancelEvent(String id) {
         if (eventRepository.existsById(id)) {
-            eventRepository.deleteById(id);
-            return true;
+            Event event = eventRepository.findById(id).orElse(null);
+            if (event != null) {
+                event.setIsCanceled(true);
+                eventRepository.save(event);
+                return true;
+            }
         }
         return false;
     }
+
 
     public Optional<Event> getEventById(String id) {
         return eventRepository.findById(id);

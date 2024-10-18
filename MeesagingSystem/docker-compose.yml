@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  springboot-app:
+    build: .
+    ports:
+      - "8080:8080"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    environment:
+      SPRING_DATA_MONGODB_URI: mongodb://mongodb:27017/messagingApp
+
+  mongodb:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongo", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  mongo-data:

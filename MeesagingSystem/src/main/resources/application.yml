@@ -3,33 +3,40 @@ spring:
     name: MessagingSystem
   data:
     mongodb:
-      host: 10.1.22.176  # Retained the external MongoDB host
+      host: 10.1.22.176
       port: 27017
       database: messagingApp
+#  data:
+#    mongodb:
+#      uri: mongodb://10.1.22.26:27017/messagingApp
   servlet:
     multipart:
       max-file-size: 10MB
       max-request-size: 10MB
-  jackson:
-    serialization:
-      write-dates-as-timestamps: false  # Added from application.properties
-server:
-  port: 8081  # Retained from application.properties
-
 file:
-  storage-path: C:\Users\abenezert\Desktop\Files for test  # Updated to your preferred file path
+  storage-path: C:\Users\abenezert\Desktop\Files for test
+  #{SPRING_FILE_STORAGE_PATH:\home\user\files}
+    # Updated to your preferred file path
+
+lib-credentials:
+  username: lion
+  password: bank
+
+lib-url:
+  email: http://10.1.7.115:9191/api/v1/lionbank/channel/smtp/send/email2
+  tele-sms: http://10.1.7.115:9191/api/v1/lionbank/channel/sms/1/send
+  safari-sms: http://10.1.7.115:9191/api/v1/lionbank/channel/sms/2/send
+
 
 application:
   security:
     jwt:
       secret-key: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
-      expiration: 2419200000  # 7 days in milliseconds
+      expiration: 2419200000 # 7 day
 
 ldap:
   username: CN=digildap,OU=ITS Users,OU=IT,DC=LIB5,DC=COM
   password: D!g!ld4p
   url: ldap://10.1.10.1:389
-  search-base: DC=LIB5,DC=COM  # Updated search base from application.properties
-#logging:
-#  level:
-#    org.springframework.security: DEBUG  # Added from application.properties
+  search-base: OU=LIB Users & Computers,DC=LIB5,DC=COM
+

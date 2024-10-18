@@ -103,7 +103,7 @@ public class MessageController {
     // New endpoint to get unread message count (for notification)
     @GetMapping("/inbox/unread-count")
     public ResponseEntity<Long> getUnreadMessageCount() {
-        long unreadCount = messageService.countUnreadMessage();
+        long unreadCount = messageServiceImpl.countUnreadMessages();
         return ResponseEntity.ok(unreadCount);
     }
     // New endpoint to mark a message as read

@@ -32,6 +32,7 @@ public interface MessageService {
     void deleteMessageById(String id);
     Message resendMessage(String messageId);
     List<Message> searchInboxMessages(String senderEmail, String attachmentName);
+    long countUnreadMessages();
 }
 
 

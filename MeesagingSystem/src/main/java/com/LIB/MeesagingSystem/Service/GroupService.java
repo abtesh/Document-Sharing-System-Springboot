@@ -28,4 +28,7 @@ public interface GroupService {
     List<Group> getGroupsByUserId();
     List<InboxMessageDto> getMessagesByGroupId(String groupId);
     Group removeMemberFromGroup(String groupId, String memberId);
+
+    long countUnreadMessages(String groupId);
+    void markMessageAsRead(String messageId);
 }

@@ -33,4 +33,5 @@ public class Group {
     private Date creationDate;
     private List<String> members;
     private GroupType groupType;
+    private Boolean isRead = false;
 }

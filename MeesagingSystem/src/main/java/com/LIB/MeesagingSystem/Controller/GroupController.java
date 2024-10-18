@@ -121,7 +121,18 @@ public class GroupController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Collections.emptyList());
         }
     }
-
+    // New endpoint to get unread message count (for notification)
+    @GetMapping("/inbox/unread-count/{groupId}")
+    public ResponseEntity<Long> getUnreadMessageCount(@PathVariable String groupId) {
+        long unreadCount = groupServiceImpl.countUnreadMessages(groupId);
+        return ResponseEntity.ok(unreadCount);
+    }
+    // New endpoint to mark a message as read
+    @GetMapping("/inbox/mark-as-read/{messageId}")
+    public ResponseEntity<Void> markMessagesAsRead(@PathVariable String messageId) {
+        groupServiceImpl.markMessageAsRead(messageId);
+        return ResponseEntity.ok().build();
+    }
 }
 
 

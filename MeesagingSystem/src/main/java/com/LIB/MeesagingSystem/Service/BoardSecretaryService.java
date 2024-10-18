@@ -264,13 +264,13 @@ public ApiResponse updateBoardSecretary(String id, SecretaryUpdate secretaryUpda
     }
 
     public boolean externalUserLogin(String email, String password) {
-        BoardSecretary boardSecretary = boardSecretaryRepo.findByEmailAndIsActive(email, true).orElseThrow(() -> new AuthenticationException());
+        BoardSecretary boardSecretary = boardSecretaryRepo.findByEmailAndIsActive(email, true).orElseThrow(AuthenticationException::new);
         return bCryptPasswordEncoder.matches(password, boardSecretary.getPassword());
     }
 
 
     public BoardSecretary getExternalUser(String email, boolean active) {
-        return boardSecretaryRepo.findByEmailAndIsActive(email, active).orElseThrow(() -> new AuthenticationException());
+        return boardSecretaryRepo.findByEmailAndIsActive(email, active).orElseThrow(AuthenticationException::new);
     }
 
     public BoardSecretary getExternalUser(String id) {

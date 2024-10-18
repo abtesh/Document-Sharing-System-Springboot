@@ -29,18 +29,18 @@ public class EventController {
         return ResponseEntity.ok(event);
     }
 
-    @PutMapping("/{id}")
-    public ResponseEntity<Event> updateEvent(@PathVariable String id, @RequestBody EventDTO eventDTO) {
-        Event updatedEvent = eventService.updateEvent(id, eventDTO);
-        if (updatedEvent != null) {
-            return ResponseEntity.ok(updatedEvent);
-        }
-        return ResponseEntity.notFound().build();
-    }
+//    @PutMapping("/{id}")
+//    public ResponseEntity<Event> updateEvent(@PathVariable String id, @RequestBody EventDTO eventDTO) {
+//        Event updatedEvent = eventService.updateEvent(id, eventDTO);
+//        if (updatedEvent != null) {
+//            return ResponseEntity.ok(updatedEvent);
+//        }
+//        return ResponseEntity.notFound().build();
+//    }
 
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteEvent(@PathVariable String id) {
-        boolean isDeleted = eventService.deleteEvent(id);
+    @PatchMapping("/{id}")
+    public ResponseEntity<Void> cancelEvent(@PathVariable String id) {
+        boolean isDeleted = eventService.cancelEvent(id);
         if (isDeleted) {
             return ResponseEntity.noContent().build();
         }
@@ -61,5 +61,7 @@ public class EventController {
         List<Event> events = eventService.getAllEvents();
         return ResponseEntity.ok(events);
     }
+
+
 
 }

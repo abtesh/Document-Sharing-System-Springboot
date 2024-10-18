@@ -9,19 +9,21 @@ import com.LIB.MeesagingSystem.Repository.FilePrivilegeRepository;
 import com.LIB.MeesagingSystem.Repository.MessageRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestTemplate;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Objects;
 import java.util.Optional;
 
 
@@ -41,24 +43,26 @@ public class FileController {
 
     @GetMapping("/viewAttachment")
     public ResponseEntity<?> viewAttachment(@RequestParam String fileName) throws IOException {
-        // Retrieve the message by the attachment file name
         Optional<Message> message = messageRepository.findByAttachmentsContaining(fileName);
         if (message.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Message not found for the given attachment");
         }
-
-        // Validate user's access to the file
         LdapUserDTO user = (LdapUserDTO) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         String userId = user.getUid();
         FilePrivilege privilege = filePrivilegeRepository.findByAttachmentIdAndUserId(fileName, userId)
                 .orElseThrow(() -> new RuntimeException("Access Denied"));
 
-        // Validate permission to view/download the file
         if (!privilege.isCanView() && !privilege.isCanDownload()) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("You don't have permission to view or download this file");
         }
+                if (privilege.isCanView() && !privilege.isCanDownload() && !fileName.endsWith(".pdf")) {
+            ResponseEntity<?> pdfConversionResponse = convertToPdf(fileName);
+            if (pdfConversionResponse.getStatusCode() != HttpStatus.OK) {
+                return ResponseEntity.status(pdfConversionResponse.getStatusCode()).build();
+            }
+            fileName = fileName.replace(".", "_") + ".pdf"; // Update fileName to the converted PDF
+        }
 
-        // Retrieve the file
         Path path = Paths.get(storagePath).resolve(fileName);
         Resource resource = new UrlResource(path.toUri());
 
@@ -68,58 +72,53 @@ public class FileController {
                 contentType = "application/octet-stream";
             }
 
-            // Set MIME types explicitly if needed
-            if (path.getFileName().toString().endsWith(".pdf")) {
-                contentType = "application/pdf";
-            } else if (path.getFileName().toString().endsWith(".jpg") || path.getFileName().toString().endsWith(".jpeg")) {
-                contentType = "image/jpeg";
-            } else if (path.getFileName().toString().endsWith(".PNG")) {
-                contentType = "image/png";
-            } else if (path.getFileName().toString().endsWith(".txt")) {
-                contentType = "text/plain";
-            } else if (path.getFileName().toString().endsWith(".html")) {
-                contentType = "text/html";
-            } else if (path.getFileName().toString().endsWith(".ppt")) {
-                contentType = "application/vnd.ms-powerpoint";
-            } else if (path.getFileName().toString().endsWith(".pptx")) {
-                contentType = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
-            } else if (path.getFileName().toString().endsWith(".csv")) {
-                contentType = "text/csv";
-            } else if (path.getFileName().toString().endsWith(".doc")) {
-                contentType = "application/msword";
-            } else if (path.getFileName().toString().endsWith(".docx")) {
-                contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-            } else if (path.getFileName().toString().endsWith(".xlsx")) {
-                contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-            } else if (path.getFileName().toString().endsWith(".xml")) {
-                contentType = "application/xml";
-            } else if (path.getFileName().toString().endsWith(".zip")) {
-                contentType = "application/zip";
-            } else {
-                contentType = "application/octet-stream";
-            }
-
-            // Determine content disposition based on privileges
-            String contentDisposition = "inline"; // Default to inline viewing
-
-            // If the user has download privileges, allow downloading; otherwise, keep it inline for viewing
-            if (privilege.isCanDownload() && !privilege.isCanView()) {
-                contentDisposition = "attachment; filename=\"" + path.getFileName() + "\"";
-            } else if (privilege.isCanView() && privilege.isCanDownload()) {
-                contentDisposition = "inline; filename=\"" + path.getFileName() + "\""; // Force inline viewing if they can only view
-            }
+            String contentDisposition = privilege.isCanDownload()
+                    ? "attachment"
+                    : "inline" ;
 
             return ResponseEntity.ok()
                     .contentType(MediaType.parseMediaType(contentType))
                     .header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition)
-                    .header(HttpHeaders.CACHE_CONTROL, "no-cache")
+                    .header(HttpHeaders.CACHE_CONTROL, "no-cache, no-store, must-revalidate")
+                    .header(HttpHeaders.PRAGMA, "no-cache")
+                    .header(HttpHeaders.EXPIRES, "0")
+                    .header("Access-Control-Allow-Headers", "Content-Disposition")
                     .body(resource);
         } else {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("File not found or not readable");
         }
     }
+    private ResponseEntity<?> convertToPdf(String fileName) throws IOException {
+        // Locate the file
+        Path filePath = Paths.get(storagePath).resolve(fileName);
+        Resource resource = new UrlResource(filePath.toUri());
 
+        if (!resource.exists() || !resource.isReadable()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("File not found or not readable");
+        }
+        // Send the file to Gotenberg API for conversion
+        String gotenbergUrl = "http://localhost:3000/forms/libreoffice/convert";
 
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+
+        MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+        body.add("files", new FileSystemResource(filePath.toFile()));
+
+        HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
+
+        RestTemplate restTemplate = new RestTemplate();
+        ResponseEntity<byte[]> response = restTemplate.exchange(gotenbergUrl, HttpMethod.POST, requestEntity, byte[].class);
+
+        if (response.getStatusCode() == HttpStatus.OK) {
+            // Save the converted PDF file
+            Path pdfPath = Paths.get(storagePath).resolve(fileName.replace(".", "_") + ".pdf");
+            Files.write(pdfPath, Objects.requireNonNull(response.getBody()));
+            return ResponseEntity.ok().body("File converted to PDF successfully");
+        } else {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to convert file to PDF");
+        }
+    }
 
     @PostMapping("/setFilePrivilege")
     public ResponseEntity<?> setFilePrivilege(@RequestParam String attachmentId,
@@ -130,12 +129,13 @@ public class FileController {
         System.out.println("Received Request: attachmentId=" + attachmentId + ", userId=" + userId);
         System.out.println("Privileges: canView=" + canView + ", canDownload=" + canDownload);
 
-        // Check if the query returns something
+
         Optional<FilePrivilege> optionalPrivilege = filePrivilegeRepository.findByAttachmentIdAndUserId(attachmentId, userId);
         FilePrivilege privilege;
         if (optionalPrivilege.isPresent()) {
             privilege = optionalPrivilege.get();
             privilege.setCanDownload(canDownload);
+            privilege.setUserId(userId);
             privilege.setCanView(canView);
             System.out.println("Privilege found: Updating existing privilege");
         } else {
@@ -178,7 +178,7 @@ public class FileController {
     }
 
     @GetMapping("/group/viewAttachment")
-    public ResponseEntity<Resource> viewGroupAttachment(@RequestParam String fileName, @RequestParam String groupId) throws IOException {
+    public ResponseEntity<?> viewGroupAttachment(@RequestParam String fileName, @RequestParam String groupId) throws IOException {
         Message message = messageRepository.findByGroupIdAndAttachmentsContaining(groupId, fileName);
         if (message == null) {
             throw new RuntimeException("Message not found for the given attachment");
@@ -189,6 +189,13 @@ public class FileController {
         if (!privilege.isCanView() && !privilege.isCanDownload()) {
             throw new RuntimeException("You don't have permission to view or download this file");
         }
+        if (privilege.isCanView() && !privilege.isCanDownload() && !fileName.endsWith(".pdf")) {
+            ResponseEntity<?> pdfConversionResponse = convertToPdf(fileName);
+            if (pdfConversionResponse.getStatusCode() != HttpStatus.OK) {
+                return ResponseEntity.status(pdfConversionResponse.getStatusCode()).build();
+            }
+            fileName = fileName.replace(".", "_") + ".pdf"; // Update fileName to the converted PDF
+        }
 
         Path path = Paths.get(storagePath).resolve(fileName);
         Resource resource = new UrlResource(path.toUri());
@@ -198,21 +205,26 @@ public class FileController {
             if (contentType == null) {
                 contentType = "application/octet-stream";
             }
-            String contentDisposition;
-            if (privilege.isCanDownload()) {
-                contentDisposition = "inline; filename=\"" + path.getFileName().toString() + "\"";
-            } else if (privilege.isCanView()) {
-                contentDisposition = "inline; filename=\"" + path.getFileName().toString() + "\"";
-            } else {
-                // Handle the case where neither canView nor canDownload is true
-                contentDisposition = "inline; filename=\"" + path.getFileName().toString() + "\"";
-            }
+
+            String contentDisposition = privilege.isCanDownload()
+                    ? "attachment"
+                    : "inline" ;
+
             return ResponseEntity.ok()
                     .contentType(MediaType.parseMediaType(contentType))
                     .header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition)
+                    .header(HttpHeaders.CACHE_CONTROL, "no-cache, no-store, must-revalidate")
+                    .header(HttpHeaders.PRAGMA, "no-cache")
+                    .header(HttpHeaders.EXPIRES, "0")
+                    .header("Access-Control-Allow-Headers", "Content-Disposition")
                     .body(resource);
         } else {
-            throw new RuntimeException("File not found or not readable");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("File not found or not readable");
         }
     }
+
+    // Debugging logs
+//            System.out.println("File: " + fileName);
+//            System.out.println("Privilege: canView=" + privilege.isCanView() + ", canDownload=" + privilege.isCanDownload());
+//            System.out.println("Content-Disposition: " + contentDisposition);
 }

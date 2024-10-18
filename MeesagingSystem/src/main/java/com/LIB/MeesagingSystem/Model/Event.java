@@ -26,4 +26,5 @@ public class Event {
     private Date end;
     private Date createdDate;
     private Date updatedDate;
+    private Boolean isCanceled = false;
 }

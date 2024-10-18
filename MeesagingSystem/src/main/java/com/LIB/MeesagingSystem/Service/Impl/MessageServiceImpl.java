@@ -107,22 +107,30 @@ public class MessageServiceImpl implements MessageService {
         List<FilePrivilege> filePrivileges = new ArrayList<>();
         String messageId = message.getId();
 
+        String receiverId = message.getReceiverId();  // Fetch the receiver's ID from the message
+        if (receiverId == null || receiverId.isEmpty()) {
+            throw new RuntimeException("Receiver ID is missing in the message");
+        }
+
         for (String attachment : message.getAttachments()) {
-            Optional<FilePrivilege> existingFilePrivilege = filePrivilegeRepository.findByAttachmentIdAndUserId(attachment, message.getReceiverId());
+            // Fetch existing privilege based on attachmentId and userId (receiverId)
+            Optional<FilePrivilege> existingFilePrivilege = filePrivilegeRepository.findByAttachmentIdAndUserId(attachment, receiverId);
 
             FilePrivilege privilege;
             if(existingFilePrivilege.isPresent()){
                 privilege = existingFilePrivilege.get();
-            }else {
+            } else {
                 privilege = new FilePrivilege();
                 privilege.setAttachmentId(attachment);
-                privilege.setUserId(message.getReceiverId());
+                privilege.setUserId(receiverId);  // Ensure userId (receiverId) is set here
             }
+
             privilege.setMessageId(messageId);
             privilege.setCanView(true);
             privilege.setCanDownload(true);
             filePrivileges.add(privilege);
         }
+
         filePrivilegeRepository.saveAll(filePrivileges);
     }
     public Message getMessage(String id) {
@@ -141,24 +149,22 @@ public class MessageServiceImpl implements MessageService {
                     .map(Users::getEmail)
                     .orElse(null);
             List<String> attachments = message.getAttachments();
-            return new InboxMessageDto(message.getId(), senderEmail, message.getContent(), message.getDate(), attachments);
+            boolean isDownloadable = attachments.stream().allMatch(attachment -> {
+                Optional<FilePrivilege> privilege = filePrivilegeRepository.findByAttachmentIdAndUserId(attachment, userId);
+                return privilege.map(FilePrivilege::isCanDownload).orElse(false);
+            });
+            return new InboxMessageDto(message.getId(), senderEmail, message.getContent(), message.getDate(), attachments, isDownloadable);
+
+
         }).collect(Collectors.toList());
     }
 
-    public long countUnreadMessage(){
+    public long countUnreadMessages() {
         LdapUserDTO userDTO = (LdapUserDTO) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         String userId = userDTO.getUid();
         return messageRepository.countByReceiverIdAndIsReadFalse(userId);
     }
 
-//    public void markMessageAsRead(String messageId) {
-//        Optional<Message> messageOpt = messageRepository.findById(messageId);
-//        if(messageOpt.isPresent()){
-//            Message message = messageOpt.get();
-//            message.setRead(true);
-//            messageRepository.save(message);
-//        }
-  //  }
     public void markMessageAsRead() {
         LdapUserDTO dto = (LdapUserDTO) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         String userId = dto.getUid();
@@ -333,5 +339,6 @@ public class MessageServiceImpl implements MessageService {
         }
         return foundMessages;
     }
+
 }
 
