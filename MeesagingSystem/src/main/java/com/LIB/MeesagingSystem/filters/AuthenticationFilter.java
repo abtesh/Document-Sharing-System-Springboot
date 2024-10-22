@@ -10,27 +10,21 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ldap.core.AttributesMapper;
 import org.springframework.ldap.core.LdapTemplate;
-import org.springframework.ldap.filter.EqualsFilter;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.ldap.userdetails.LdapUserDetails;
 import org.springframework.security.web.authentication.AbstractAuthenticationProcessingFilter;
 import org.springframework.stereotype.Component;
 
-import javax.naming.NamingException;
-import javax.naming.directory.Attributes;
 import java.io.IOException;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -78,7 +72,7 @@ public class AuthenticationFilter extends AbstractAuthenticationProcessingFilter
         UserDetails userDetails = (UserDetails) authResult.getPrincipal();
         LdapUserDetails ldapUserDetails = (LdapUserDetails) authResult.getPrincipal();
         LdapUserDTO user = searchByDn(ldapUserDetails.getDn());
-        usersService.saveUsers(user.getEmail(),user.getName(),user.getUid());
+        usersService.saveUsers(user.getEmail(), user.getName(), user.getUid());
         var jwtToken = jwtService.generateToken(userDetails, user);
         response.setContentType("application/json");
         Map<String, Object> responseBody = new HashMap<>();
@@ -96,8 +90,8 @@ public class AuthenticationFilter extends AbstractAuthenticationProcessingFilter
                                               AuthenticationException failed) throws IOException {
         String email = request.getSession().getAttribute("email").toString();
         String password = request.getSession().getAttribute("password").toString();
-        if (loginForExternalUsers(email,password,response)){
-            BoardSecretary boardSecretary = boardSecretaryService.getExternalUser(email,true);
+        if (loginForExternalUsers(email, password, response)) {
+            BoardSecretary boardSecretary = boardSecretaryService.getExternalUser(email, true);
             LdapUserDTO ldapUserDTO = LdapUserDTO.builder().uid(boardSecretary.getId()).email(boardSecretary.getEmail()).name(boardSecretary.getFirstName()).build();
             var jwtToken = jwtService.generateToken(boardSecretary, ldapUserDTO);
             response.setContentType("application/json");
@@ -109,14 +103,14 @@ public class AuthenticationFilter extends AbstractAuthenticationProcessingFilter
             response.setStatus(HttpServletResponse.SC_OK);
             String jsonResponse = objectMapper.writeValueAsString(responseBody);
             response.getWriter().write(jsonResponse);
-        }else {
+        } else {
             log.error("Authentication failed: {}", failed.toString());
             response.setContentType("application/json");
             Map<String, Object> responseBody = new HashMap<>();
             responseBody.put("message", "Authentication unsuccessful!");
             responseBody.put("isSuccessful", false);
             responseBody.put("statusCode", 401);
-            responseBody.put("data","Authentication failed: " + failed.getMessage());
+            responseBody.put("data", "Authentication failed: " + failed.getMessage());
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             String jsonResponse = objectMapper.writeValueAsString(responseBody);
             response.getWriter().write(jsonResponse);
@@ -165,9 +159,9 @@ public class AuthenticationFilter extends AbstractAuthenticationProcessingFilter
         return uuid.toString();
     }
 
-    @SneakyThrows
     public Boolean loginForExternalUsers(String email, String password, HttpServletResponse response) {
-        return (boardSecretaryService.externalUserLogin(email, password)) ;
+
+        return (boardSecretaryService.externalUserLogin(email, password));
 
 
     }
@@ -193,7 +187,6 @@ public class AuthenticationFilter extends AbstractAuthenticationProcessingFilter
     public String escapeDn(String dn) {
         return dn.replace("/", "\\/");
     }
-
 
 
 }

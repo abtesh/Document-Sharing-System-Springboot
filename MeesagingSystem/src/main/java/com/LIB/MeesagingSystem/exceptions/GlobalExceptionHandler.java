@@ -8,6 +8,8 @@ import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import javax.naming.AuthenticationException;
+
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -30,5 +32,10 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<GenericResponseDto<Void>> handleIllegalStateException(IllegalStateException ex) {
         return new ResponseEntity<>(new GenericResponseDto<>(false,429,ex.getMessage(),null), HttpStatus.TOO_MANY_REQUESTS);
+    }
+
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<GenericResponseDto<Void>> handleAuthenticationException(AuthenticationException authenticationException){
+        return new ResponseEntity<>(new GenericResponseDto<>(false,401,authenticationException.getMessage(),null), HttpStatus.UNAUTHORIZED);
     }
 }

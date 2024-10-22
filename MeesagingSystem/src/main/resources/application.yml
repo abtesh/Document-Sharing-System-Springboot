@@ -1,21 +1,22 @@
 spring:
   application:
     name: MessagingSystem
-  data:
-    mongodb:
-      host: 10.1.22.176
-      port: 27017
-      database: messagingApp
 #  data:
 #    mongodb:
-#      uri: mongodb://10.1.22.26:27017/messagingApp
+#      host: 10.1.22.176
+#      port: 27017
+#      database: messagingApp
+  data:
+    mongodb:
+      uri: mongodb://10.1.22.26:27017/messagingApp
   servlet:
     multipart:
       max-file-size: 10MB
       max-request-size: 10MB
 file:
-  storage-path: C:\Users\abenezert\Desktop\Files for test
-  #{SPRING_FILE_STORAGE_PATH:\home\user\files}
+  storage-path: ${SPRING_FILE_STORAGE_PATH:\home\user\files}
+#  C:\Users\abenezert\Desktop\Files for test
+  #
     # Updated to your preferred file path
 
 lib-credentials:
@@ -38,5 +39,5 @@ ldap:
   username: CN=digildap,OU=ITS Users,OU=IT,DC=LIB5,DC=COM
   password: D!g!ld4p
   url: ldap://10.1.10.1:389
-  search-base: OU=LIB Users & Computers,DC=LIB5,DC=COM
+  search-base: DC=LIB5,DC=COM
 
