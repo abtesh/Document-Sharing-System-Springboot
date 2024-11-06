@@ -9,6 +9,6 @@ public class MessagingSystemApplication {
 
 	public static void main(String[] args) {
 		SpringApplication.run(MessagingSystemApplication.class, args);
-		System.out.println("serving is running ...");
+		System.out.println("server is up and running ...");
 	}
 }
